@@ -1,46 +1,105 @@
-import { FastMCP } from "fastmcp";
-import { z } from "zod";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import express from "express";
+import type { Request, Response } from "express";
+import { z } from "zod";  
 
-// 创建 FastMCP 实例
-const server = new FastMCP({
-  name: "My Server",
-  version: "1.0.0"
-});
+// Function to create and configure MCP server instance
+function getServer(): McpServer {
+  const server = new McpServer({
+    name: "mcp-bun-server",
+    version: "1.0.0",
+    capabilities: {
+      // Configure your capabilities based on your implementation
+      streamable: true,
+    },
+  });
+  
+  return server;
+}
 
-// 添加一个简单的工具示例
-server.addTool({
-  name: "hello",
-  description: "返回 Hello World 消息",
-  parameters: z.object({}),
-  execute: async () => {
-    return "Hello World";
+const app = express();
+app.use(express.json());
+
+app.post('/mcp', async (req: Request, res: Response) => {
+  // In stateless mode, create a new instance of transport and server for each request
+  // to ensure complete isolation. A single instance would cause request ID collisions
+  // when multiple clients connect concurrently.
+  
+  try {
+    const server = getServer(); 
+    // Simple tool with parameters
+server.tool(
+  "calculate-bmi",
+  {
+    weightKg: z.number(),
+    heightM: z.number()
   },
+  async ({ weightKg, heightM }) => ({
+    content: [{
+      type: "text",
+      text: String(weightKg / (heightM * heightM))
+    }]
+  })
+);
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+    });
+    await server.connect(transport);
+    
+    // Cast to appropriate types for the SDK
+    const nodeReq = req as unknown as IncomingMessage;
+    const nodeRes = res as unknown as ServerResponse;
+    
+    await transport.handleRequest(nodeReq, nodeRes, req.body);
+    
+    res.on('finish', () => {
+      console.log('Request finished');
+      transport.close();
+      server.close();
+    });
+  } catch (error) {
+    console.error('Error handling MCP request:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32603,
+          message: 'Internal server error',
+        },
+        id: null,
+      });
+    }
+  }
 });
 
-// 添加带参数的工具示例
-server.addTool({
-  name: "add",
-  description: "将两个数字相加",
-  parameters: z.object({
-    a: z.number(),
-    b: z.number(),
-  }),
-  execute: async (args) => {
-    return String(args.a + args.b);
-  },
+app.get('/mcp', async (req: Request, res: Response) => {
+  console.log('Received GET MCP request');
+  res.status(405).json({
+    jsonrpc: "2.0",
+    error: {
+      code: -32000,
+      message: "Method not allowed."
+    },
+    id: null
+  });
 });
 
-// 获取端口配置（优先使用 WEB_PORT 环境变量，其次是 PORT，最后默认值为 3000）
-const PORT = process.env.WEB_PORT || process.env.PORT || 3000;
-
-// 启动服务器
-server.start({
-  transportType: "sse",
-  sse: {
-    endpoint: "/sse",
-    port: Number(PORT),
-  },
+app.delete('/mcp', async (req: Request, res: Response) => {
+  console.log('Received DELETE MCP request');
+  res.status(405).json({
+    jsonrpc: "2.0",
+    error: {
+      code: -32000,
+      message: "Method not allowed."
+    },
+    id: null
+  });
 });
 
-console.log(`FastMCP API 服务器已启动，运行在 http://localhost:${PORT}/sse`);
-console.log(`如果在 Docker 中运行，可通过 http://0.0.0.0:${PORT}/sse 访问`);
+// Start the server
+const PORT = process.env.PORT ? Number.parseInt(process.env.PORT) : 3000;
+app.listen(PORT, () => {
+  console.log(`MCP Stateless Streamable HTTP Server listening on port ${PORT}`);
+});
