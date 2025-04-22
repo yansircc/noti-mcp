@@ -30,13 +30,17 @@ server.addTool({
   },
 });
 
+// 获取端口配置（优先使用 WEB_PORT 环境变量，其次是 PORT，最后默认值为 3000）
+const PORT = process.env.WEB_PORT || process.env.PORT || 3000;
+
 // 启动服务器
 server.start({
   transportType: "sse",
   sse: {
     endpoint: "/sse",
-    port: 3000,
+    port: Number(PORT),
   },
 });
 
-console.log("FastMCP API 服务器已启动，运行在 http://localhost:3000");
+console.log(`FastMCP API 服务器已启动，运行在 http://localhost:${PORT}/sse`);
+console.log(`如果在 Docker 中运行，可通过 http://0.0.0.0:${PORT}/sse 访问`);
