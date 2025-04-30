@@ -1,16 +1,18 @@
 {
-  "name": "bun-react-template",
+  "name": "mcp-notification-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "src/index.tsx",
-  "module": "src/index.tsx",
+  "main": "src/main.ts",
+  "module": "src/main.ts",
+  "description": "Model Context Protocol (MCP) 通知服务器，支持邮件、微信推送和关键词研究功能",
   "scripts": {
     "dev": "bun --hot src/main.ts",
     "start": "NODE_ENV=production bun run src/main.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",
+    "axios": "^1.9.0",
     "express": "^4.18.2",
     "serverchan-sdk": "^1.0.6",
     "zod": "^3.23.8"
