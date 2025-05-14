@@ -1,0 +1,18 @@
+services:
+  fastmcp-api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastmcp-api
+    ports:
+      - "3000:3000"  # 将容器的 3000 端口映射到宿主机的 3000 端口
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      # 如果需要添加其他环境变量，可以在这里添加
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/sse"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s 
